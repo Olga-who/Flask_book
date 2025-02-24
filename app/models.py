@@ -50,7 +50,7 @@ class User(UserMixin, db.Model):
 
     def is_following(self, user):
         query = self.following.select().where(User.id == user.id)
-        return db.sesion.scalar(query) is not None
+        return db.session.scalar(query) is not None
 
     def follower_count(self):
         query = sa.select(sa.func.count()).select_from(self.followers.select().subquery())
@@ -65,13 +65,13 @@ class User(UserMixin, db.Model):
         return (
             sa.select(Post).join(Post.author.of_type(Author)).join(Author.followers.of_type(Follower), isouter=True).where(sa.or_(
                 Follower.id == self.id,
-                Author.id == self.self.id)).group_by(Post).order_by(Post.timestamp.desc())
+                Author.id == self.id)).group_by(Post).order_by(Post.timestamp.desc())
         )
 
 class Post(db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
     body: so.Mapped[str] = so.mapped_column(sa.String(140))
-    timestap: so.Mapped[datetime] = so.mapped_column(index=True, default=lambda: datetime.now(timezone.utc))
+    timestamp: so.Mapped[datetime] = so.mapped_column(index=True, default=lambda: datetime.now(timezone.utc))
     user_id: so.Mapped[int] = so.mapped_column(sa.ForeignKey(User.id), index=True)
     author: so.Mapped[User] = so.relationship(back_populates='posts')
 
