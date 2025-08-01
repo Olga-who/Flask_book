@@ -7,7 +7,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_mail import Mail
-from app import routes, models, errors
 
 from config import Config
 
@@ -49,3 +48,5 @@ if not app.debug:
 
     app.logger.setLevel(logging.INFO)
     app.logger.info('My project')
+
+from app import routes, models, errors
