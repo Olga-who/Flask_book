@@ -1,15 +1,18 @@
 from datetime import datetime, timezone
 from typing import Optional
+from hashlib import md5
+from time import time
+
 import sqlalchemy as sa
 import sqlalchemy.orm as so
 from werkzeug.security import generate_password_hash, check_password_hash
-from app import db
 from flask_login import UserMixin
+
+from app import db
 from app import login
-from hashlib import md5
-from time import time
-import jwt
 from app import app
+import jwt
+
 
 followers = sa.Table(
     'followers',db.metadata,
@@ -24,12 +27,16 @@ class User(UserMixin, db.Model):
     posts: so.WriteOnlyMapped['Post'] = so.relationship(back_populates='author')
     about_me: so.Mapped[Optional[str]] =so.mapped_column(sa.String(140))
     last_seen: so.Mapped[Optional[datetime]] = so.mapped_column(default=lambda: datetime.now(timezone.utc))
+
     def __repr__(self):
         return '<User {}>'.format(self.username)
+
     def set_password(self ,password):
         self.password_hash = generate_password_hash(password)
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
     def avatar(self, size):
         digest = md5(self.email.lower().encode('utf-8')).hexdigest()
         return f'https://www.gravatar.com/avatar/{digest}?d=identicon&s={size}'
@@ -37,11 +44,14 @@ class User(UserMixin, db.Model):
     following: so.WriteOnlyMapped['User'] = so.relationship(
         secondary=followers, primaryjoin=(followers.c.follower_id == id),
         secondaryjoin=(followers.c.followed_id == id),
-        back_populates='followers')
+        back_populates='followers'
+    )
+
     followers: so.WriteOnlyMapped['User'] = so.relationship(
         secondary=followers, primaryjoin=(followers.c.followed_id == id),
         secondaryjoin=(followers.c.follower_id == id),
-        back_populates='following')
+        back_populates='following'
+    )
 
     def follow(self, user):
         if not self.is_following(user):
@@ -62,18 +72,30 @@ class User(UserMixin, db.Model):
     def following_count(self):
         query = sa.select(sa.func.count()).select_from(self.following.select().subquery())
         return db.session.scalar(query)
+
     def following_posts(self):
         Author = so.aliased(User)
         Follower = so.aliased(User)
+
         return (
-            sa.select(Post).join(Post.author.of_type(Author)).join(Author.followers.of_type(Follower), isouter=True).where(sa.or_(
+            sa.select(Post)
+            .join(Post.author.of_type(Author))
+            .join(
+                Author.followers.of_type(Follower),
+                isouter=True
+            ).where(sa.or_(
                 Follower.id == self.id,
-                Author.id == self.id)).group_by(Post).order_by(Post.timestamp.desc())
+                Author.id == self.id
+            ))
+            .group_by(Post)
+            .order_by(Post.timestamp.desc())
         )
+
     def get_reset_password_token(self, expires_in=600):
         return jwt.encode(
             {'reset_password': self.id, 'exp': time() + expires_in},
-            app.config['SECRET_KEY'], algorithm='HS256')
+            app.config['SECRET_KEY'], algorithm='HS256'
+        )
 
     @staticmethod
     def verify_reset_password_token(token):
@@ -82,6 +104,8 @@ class User(UserMixin, db.Model):
         except:
             return
         return db.session.get(User, id)
+
+
 class Post(db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
     body: so.Mapped[str] = so.mapped_column(sa.String(140))
@@ -91,6 +115,7 @@ class Post(db.Model):
 
     def __repr__(self):
         return '<Post {}>'.format(self.body)
+
 
 @login.user_loader
 def load_user(id):
